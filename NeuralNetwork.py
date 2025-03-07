@@ -82,11 +82,12 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         self.dinputs = self.dinputs / samples
 
 class Optimizer_SGD:
-    def __init__(self, learning_rate=1., decay=0.):
+    def __init__(self, learning_rate=1., decay=0., momentum=0.):
         self.learning_rate = learning_rate
         self.current_learning_rate = learning_rate
         self.decay = decay
         self.iterations = 0
+        self.momentum = momentum
     def pre_update_params(self):
         if self.decay:
             self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
@@ -111,18 +112,59 @@ class Optimizer_SGD:
     def post_update_params(self):
         self.iterations += 1
 
+class Optimizer_Adam:
+    def __init__(self, learning_rate=1., decay=0, epsilon=1e-7, beta_1=0.9, beta_2=0.999):
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+        self.epsilon = epsilon
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
+
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+
+    def update_parameters(self, layer):
+        if not hasattr(layer, 'weight_cache'):
+            layer.weight_cache = np.zeros_like(layer.weights)
+            layer.weight_momentums = np.zeros_like(layer.weights)
+            layer.bias_cache = np.zeros_like(layer.biases)
+            layer.bias_momentums = np.zeros_like(layer.biases)
+            
+        layer.weight_momentums = self.beta_1 * layer.weight_momentums + (1 - self.beta_1) * layer.dweights
+        layer.bias_momentums = self.beta_1 * layer.bias_momentums + (1 - self.beta_1) * layer.dbiases
+        
+        weight_momentums_corrected = layer.weight_momentums / (1 - self.beta_1 ** (self.iterations + 1))
+        bias_momentums_corrected = layer.bias_momentums / (1 - self.beta_1 ** (self.iterations + 1))
+        
+        layer.weight_cache = self.beta_2 * layer.weight_cache + (1 - self.beta_2) * layer.dweights**2
+        layer.bias_cache = self.beta_2 * layer.bias_cache + (1 - self.beta_2) * layer.dbiases**2
+
+        weight_cache_corrected = layer.weight_cache / (1 - self.beta_2 ** (self.iterations + 1))
+        bias_cache_corrected = layer.bias_cache / (1 - self.beta_2 ** (self.iterations + 1))
+        
+        layer.weights += -self.current_learning_rate * weight_momentums_corrected / (np.sqrt(weight_cache_corrected) + self.epsilon)
+        layer.biases += -self.current_learning_rate * bias_momentums_corrected / (np.sqrt(bias_cache_corrected) + self.epsilon)
+        
+        
+    def post_update_params(self):
+        self.iterations += 1
+
 X, y = spiral_data(samples=100, classes=3)
 dense1 = Layer_Dense(2, 64)
 activation1 = Activation_Relu()
 
 dense2 = Layer_Dense(64, 3)
 loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
-optimizer = Optimizer_SGD(decay=1e-3)
+optimizer = Optimizer_Adam(learning_rate=0.05, decay=5e-7)
 
-# Listy do przechowywania historii treningu
-# loss_history = []
-# accuracy_history = []
-# epochs_history = []
+
+loss_history = []
+accuracy_history = []
+epochs_history = []
+learning_rate = []
 
 for epoch in range(10001):
     dense1.forward(X)
@@ -134,17 +176,17 @@ for epoch in range(10001):
         y = np.argmax(y, axis=1)
     accuracy = np.mean(predictions == y)
     
-    # Zapisujemy dane co 100 epok (aby wykres nie był zbyt gęsty)
+    
     if not epoch % 100:
         print(f'epoch: {epoch}, '+
               f'acc: {accuracy:.3f}, '+
               f'loss: {loss:.3f}'+
               f' lr: {optimizer.current_learning_rate}')
-        # Dodajemy do historii
-        # loss_history.append(loss)
-        # accuracy_history.append(accuracy)
-        # epochs_history.append(epoch)
-        
+        loss_history.append(loss)
+        accuracy_history.append(accuracy)
+        epochs_history.append(epoch)
+        learning_rate.append(optimizer.current_learning_rate)
+
     loss_activation.backward(loss_activation.output, y)
     dense2.backward(loss_activation.dinputs)
     activation1.backward(dense2.dinputs)
@@ -155,31 +197,37 @@ for epoch in range(10001):
     optimizer.update_parameters(dense2)
     optimizer.post_update_params()
 
-# Po zakończeniu treningu, rysujemy wykresy
 
 
-# # Tworzymy figurę z dwoma wykresami (subplot)
-# plt.figure(figsize=(12, 5))
+
+plt.figure(figsize=(12, 5))
 
 
-# plt.subplot(1, 2, 1)
-# plt.plot(epochs_history, loss_history, 'b-', linewidth=2)
-# plt.title('Strata w czasie treningu')
-# plt.xlabel('Epoka')
-# plt.ylabel('Strata')
-# plt.grid(True)
+plt.subplot(1, 2, 2)
+plt.plot(epochs_history, loss_history, 'b-', linewidth=2)
+plt.title('Strata w czasie treningu')
+plt.xlabel('Epoka')
+plt.ylabel('Strata')
+plt.grid(True)
 
-# # Wykres dokładności (accuracy)
-# plt.subplot(1, 2, 2)
-# plt.plot(epochs_history, accuracy_history, 'r-', linewidth=2)
-# plt.title('Dokładność w czasie treningu')
-# plt.xlabel('Epoka')
-# plt.ylabel('Dokładność')
-# plt.grid(True)
+# Wykres dokładności (accuracy)
+plt.subplot(1, 2, 2)
+plt.plot(epochs_history, accuracy_history, 'r-', linewidth=2)
+plt.title('Dokładność w czasie treningu')
+plt.xlabel('Epoka')
+plt.ylabel('Dokładność')
+plt.grid(True)
 
-# plt.tight_layout()
-#  # Zapisujemy wykres do pliku
-# plt.show()  # Wyświetlamy wykres
+plt.subplot(1, 2, 2)
+plt.plot(epochs_history, learning_rate, 'g-', linewidth=2)
+plt.title('Learning rate w czasie treningu')
+plt.xlabel('Epoka')
+plt.ylabel('Learning rate')
+plt.grid(True)
+
+plt.tight_layout()
+
+plt.show()  
 
 
 
