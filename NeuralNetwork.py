@@ -82,12 +82,34 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         self.dinputs = self.dinputs / samples
 
 class Optimizer_SGD:
-    def __init__(self, learning_rate=1.0):
+    def __init__(self, learning_rate=1., decay=0.):
         self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+            
     def update_parameters(self, layer):
-        layer.weights += -self.learning_rate * layer.dweights
-        layer.biases += -self.learning_rate * layer.dbiases
-
+        if self.momentum:
+            if not hasattr(layer, 'weight_momentums'):
+                layer.weight_momentums = np.zeros_like(layer.weights)
+                layer.bias_momentums = np.zeros_like(layer.biases)
+            weight_updates = self.momentum * layer.weight_momentums - self.current_learning_rate * layer.dweights
+            layer.weight_momentums = weight_updates
+            bias_updates = self.momentum * layer.bias_momentums - self.current_learning_rate * layer.dbiases
+            layer.bias_momentums = bias_updates
+        else:
+            weight_updates = -self.current_learning_rate * layer.dweights
+            bias_updates = -self.current_learning_rate * layer.dbiases
+        layer.weights += weight_updates
+        layer.biases += bias_updates
+    
+            
+    
+    def post_update_params(self):
+        self.iterations += 1
 
 X, y = spiral_data(samples=100, classes=3)
 dense1 = Layer_Dense(2, 64)
@@ -95,12 +117,12 @@ activation1 = Activation_Relu()
 
 dense2 = Layer_Dense(64, 3)
 loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
-optimizer = Optimizer_SGD()
+optimizer = Optimizer_SGD(decay=1e-3)
 
 # Listy do przechowywania historii treningu
-loss_history = []
-accuracy_history = []
-epochs_history = []
+# loss_history = []
+# accuracy_history = []
+# epochs_history = []
 
 for epoch in range(10001):
     dense1.forward(X)
@@ -116,45 +138,48 @@ for epoch in range(10001):
     if not epoch % 100:
         print(f'epoch: {epoch}, '+
               f'acc: {accuracy:.3f}, '+
-              f'loss: {loss:.3f}')
+              f'loss: {loss:.3f}'+
+              f' lr: {optimizer.current_learning_rate}')
         # Dodajemy do historii
-        loss_history.append(loss)
-        accuracy_history.append(accuracy)
-        epochs_history.append(epoch)
+        # loss_history.append(loss)
+        # accuracy_history.append(accuracy)
+        # epochs_history.append(epoch)
         
     loss_activation.backward(loss_activation.output, y)
     dense2.backward(loss_activation.dinputs)
     activation1.backward(dense2.dinputs)
     dense1.backward(activation1.dinputs)
 
+    optimizer.pre_update_params()
     optimizer.update_parameters(dense1)
     optimizer.update_parameters(dense2)
+    optimizer.post_update_params()
 
 # Po zakończeniu treningu, rysujemy wykresy
 
 
-# Tworzymy figurę z dwoma wykresami (subplot)
-plt.figure(figsize=(12, 5))
+# # Tworzymy figurę z dwoma wykresami (subplot)
+# plt.figure(figsize=(12, 5))
 
 
-plt.subplot(1, 2, 1)
-plt.plot(epochs_history, loss_history, 'b-', linewidth=2)
-plt.title('Strata w czasie treningu')
-plt.xlabel('Epoka')
-plt.ylabel('Strata')
-plt.grid(True)
+# plt.subplot(1, 2, 1)
+# plt.plot(epochs_history, loss_history, 'b-', linewidth=2)
+# plt.title('Strata w czasie treningu')
+# plt.xlabel('Epoka')
+# plt.ylabel('Strata')
+# plt.grid(True)
 
-# Wykres dokładności (accuracy)
-plt.subplot(1, 2, 2)
-plt.plot(epochs_history, accuracy_history, 'r-', linewidth=2)
-plt.title('Dokładność w czasie treningu')
-plt.xlabel('Epoka')
-plt.ylabel('Dokładność')
-plt.grid(True)
+# # Wykres dokładności (accuracy)
+# plt.subplot(1, 2, 2)
+# plt.plot(epochs_history, accuracy_history, 'r-', linewidth=2)
+# plt.title('Dokładność w czasie treningu')
+# plt.xlabel('Epoka')
+# plt.ylabel('Dokładność')
+# plt.grid(True)
 
-plt.tight_layout()
-plt.savefig('training_history.png')  # Zapisujemy wykres do pliku
-plt.show()  # Wyświetlamy wykres
+# plt.tight_layout()
+#  # Zapisujemy wykres do pliku
+# plt.show()  # Wyświetlamy wykres
 
 
 
