@@ -81,36 +81,36 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         self.dinputs[range(samples), y_true] -= 1
         self.dinputs = self.dinputs / samples
 
-class Optimizer_SGD:
-    def __init__(self, learning_rate=1., decay=0., momentum=0.):
-        self.learning_rate = learning_rate
-        self.current_learning_rate = learning_rate
-        self.decay = decay
-        self.iterations = 0
-        self.momentum = momentum
-    def pre_update_params(self):
-        if self.decay:
-            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+# class Optimizer_SGD:
+#     def __init__(self, learning_rate=1., decay=0., momentum=0.):
+#         self.learning_rate = learning_rate
+#         self.current_learning_rate = learning_rate
+#         self.decay = decay
+#         self.iterations = 0
+#         self.momentum = momentum
+#     def pre_update_params(self):
+#         if self.decay:
+#             self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
             
-    def update_parameters(self, layer):
-        if self.momentum:
-            if not hasattr(layer, 'weight_momentums'):
-                layer.weight_momentums = np.zeros_like(layer.weights)
-                layer.bias_momentums = np.zeros_like(layer.biases)
-            weight_updates = self.momentum * layer.weight_momentums - self.current_learning_rate * layer.dweights
-            layer.weight_momentums = weight_updates
-            bias_updates = self.momentum * layer.bias_momentums - self.current_learning_rate * layer.dbiases
-            layer.bias_momentums = bias_updates
-        else:
-            weight_updates = -self.current_learning_rate * layer.dweights
-            bias_updates = -self.current_learning_rate * layer.dbiases
-        layer.weights += weight_updates
-        layer.biases += bias_updates
+#     def update_parameters(self, layer):
+#         if self.momentum:
+#             if not hasattr(layer, 'weight_momentums'):
+#                 layer.weight_momentums = np.zeros_like(layer.weights)
+#                 layer.bias_momentums = np.zeros_like(layer.biases)
+#             weight_updates = self.momentum * layer.weight_momentums - self.current_learning_rate * layer.dweights
+#             layer.weight_momentums = weight_updates
+#             bias_updates = self.momentum * layer.bias_momentums - self.current_learning_rate * layer.dbiases
+#             layer.bias_momentums = bias_updates
+#         else:
+#             weight_updates = -self.current_learning_rate * layer.dweights
+#             bias_updates = -self.current_learning_rate * layer.dbiases
+#         layer.weights += weight_updates
+#         layer.biases += bias_updates
     
             
     
-    def post_update_params(self):
-        self.iterations += 1
+    # def post_update_params(self):
+    #     self.iterations += 1
 
 class Optimizer_Adam:
     def __init__(self, learning_rate=1., decay=0, epsilon=1e-7, beta_1=0.9, beta_2=0.999):
@@ -199,6 +199,19 @@ for epoch in range(10001):
 
 
 
+
+X_test, y_test = spiral_data(samples = 100, classes= 3)
+dense1.forward(X_test)
+activation1.forward(dense1.output)
+dense2.forward(activation1.output)
+loss = loss_activation.forward(dense2.output, y_test)
+
+predictions = np.argmax(loss_activation.output, axis = 1)
+if len(y_test.shape) == 2:
+    y_test = np.argmax(y_test, axis =1)
+accuracy = np.mean(predictions == y_test)
+
+print(f'validation, acc: {accuracy: .3f}, loss: {loss: .3f}')
 
 plt.figure(figsize=(12, 5))
 
