@@ -1,104 +1,156 @@
-# Neural Network Implementation
+# Neural Network Implementation from Scratch
 
-A Python implementation of a neural network from scratch using NumPy. This implementation includes various optimization algorithms and activation functions.
+## Overview
+A comprehensive neural network implementation in Python using NumPy. This project implements various components of deep learning, including different layer types, activation functions, optimizers, and loss functions.
 
 ## Features
 
-- Dense layer implementation with regularization support (L1 and L2)
-- Multiple activation functions:
-  - ReLU (Rectified Linear Unit)
-  - Softmax
-- Various optimizers:
-  - SGD (Stochastic Gradient Descent) with momentum
-  - Adagrad
-  - RMSprop
-  - Adam
-- Loss functions:
-  - Categorical Cross-entropy
-- Support for regularization:
-  - L1 regularization
-  - L2 regularization
+### Layer Types
+- **Dense Layer (`Layer_Dense`)**: Fully connected layer with weights and biases
+- **Dropout Layer (`Layer_Dropout`)**: Regularization layer to prevent overfitting
+- **Input Layer (`Layer_Input`)**: Handles input data processing
+
+### Activation Functions
+- **ReLU (`Activation_ReLU`)**: Rectified Linear Unit activation
+- **Softmax (`Activation_Softmax`)**: For classification output
+- **Sigmoid (`Activation_Sigmoid`)**: For binary classification
+- **Linear (`Activation_Linear`)**: For regression tasks
+
+### Optimizers
+- **SGD (`Optimizer_SGD`)**: Stochastic Gradient Descent with momentum
+- **Adagrad (`Optimizer_Adagrad`)**: Adaptive gradient algorithm
+- **RMSprop (`Optimizer_RMSprop`)**: Root Mean Square propagation
+- **Adam (`Optimizer_Adam`)**: Adaptive Moment Estimation
+
+### Loss Functions
+- **Categorical Cross-Entropy (`Loss_CategoricalCrossentropy`)**: For multi-class classification
+- **Binary Cross-Entropy (`Loss_BinaryCrossentropy`)**: For binary classification
+- **Mean Squared Error (`Loss_MeanSquaredError`)**: For regression tasks
+- **Mean Absolute Error (`Loss_MeanAbsoluteError`)**: Alternative regression loss
+
+### Regularization
+- L1 regularization (weights and biases)
+- L2 regularization (weights and biases)
+- Dropout regularization
+
+### Accuracy Metrics
+- **Categorical Accuracy**: For classification tasks
+- **Regression Accuracy**: For regression tasks
 
 ## Dependencies
-
-- NumPy
-- NNFS (Neural Networks from Scratch)
-
-## Code Structure
-
-### Main Components
-
-1. **Layer_Dense**: Implementation of a fully connected neural network layer
-   - Supports forward and backward propagation
-   - Includes L1 and L2 regularization
-
-2. **Activation Functions**:
-   - `Activation_ReLU`: ReLU activation function
-   - `Activation_Softmax`: Softmax activation for classification
-
-3. **Optimizers**:
-   - `Optimizer_SGD`: Standard SGD with momentum support
-   - `Optimizer_Adagrad`: Adaptive Gradient algorithm
-   - `Optimizer_RMSprop`: Root Mean Square Propagation
-   - `Optimizer_Adam`: Adaptive Moment Estimation
-
-4. **Loss Functions**:
-   - `Loss`: Base class with regularization support
-   - `Loss_CategoricalCrossentropy`: For classification tasks
-   - `Activation_Softmax_Loss_CategoricalCrossentropy`: Combined Softmax activation and Cross-entropy loss
+```python
+import numpy as np
+import nnfs
+from nnfs.datasets import spiral_data
+```
 
 ## Usage Example
 
+### 1. Create and Prepare Data
 ```python
-# Create dataset
-X, y = spiral_data(samples=100, classes=3)
-
-# Create model layers
-dense1 = Layer_Dense(2, 512, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
-activation1 = Activation_ReLU()
-dense2 = Layer_Dense(512, 3)
-loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
-
-# Create optimizer
-optimizer = Optimizer_Adam(learning_rate=0.02, decay=5e-7)
-
-# Training loop
-for epoch in range(10001):
-    # Forward pass
-    dense1.forward(X)
-    activation1.forward(dense1.output)
-    dense2.forward(activation1.output)
-    
-    # Calculate loss
-    loss = loss_activation.forward(dense2.output, y)
-    
-    # Backward pass
-    loss_activation.backward(loss_activation.output, y)
-    dense2.backward(loss_activation.dinputs)
-    activation1.backward(dense2.dinputs)
-    dense1.backward(activation1.dinputs)
-    
-    # Update weights
-    optimizer.pre_update_params()
-    optimizer.update_params(dense1)
-    optimizer.update_params(dense2)
-    optimizer.post_update_params()
+X, y = spiral_data(samples=1000, classes=3)
+X_test, y_test = spiral_data(samples=100, classes=3)
 ```
 
-## Model Performance
+### 2. Build Model
+```python
+model = Model()
+model.add(Layer_Dense(2, 512, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4))
+model.add(Activation_ReLU())
+model.add(Layer_Dropout(0.1))
+model.add(Layer_Dense(512, 3))
+model.add(Activation_Softmax())
+```
 
-The model includes validation testing and prints:
-- Training accuracy and loss every 100 epochs
-- Final validation accuracy and loss
-- Separate tracking for data loss and regularization loss
+### 3. Configure Model
+```python
+model.set(
+    loss=Loss_CategoricalCrossentropy(),
+    optimizer=Optimizer_Adam(learning_rate=0.05, decay=5e-5),
+    accuracy=Accuracy_Categorical()
+)
+```
+
+### 4. Train Model
+```python
+model.finalize()
+model.train(X, y, 
+    validation_data=(X_test, y_test),
+    epochs=10000, 
+    print_every=100
+)
+```
+
+## Model Architecture Features
+
+### Forward Pass
+- Input processing
+- Layer-by-layer forward propagation
+- Activation function application
+- Loss calculation
+
+### Backward Pass
+- Gradient computation
+- Backpropagation through layers
+- Parameter updates via optimizers
+
+### Training Process
+- Batch processing
+- Loss calculation with regularization
+- Accuracy monitoring
+- Validation checking
+- Learning rate decay
 
 ## Advanced Features
 
-1. **Learning Rate Decay**: All optimizers support learning rate decay
-2. **Momentum**: Available in SGD optimizer
-3. **Regularization**: Both L1 and L2 regularization supported
-4. **Adaptive Learning**: Implementation of modern adaptive optimizers
+### Regularization Implementation
+```python
+# L1 regularization
+if layer.weight_regularizer_l1 > 0:
+    regularization_loss += layer.weight_regularizer_l1 * np.sum(np.abs(layer.weights))
 
-## Note
+# L2 regularization
+if layer.weight_regularizer_l2 > 0:
+    regularization_loss += layer.weight_regularizer_l2 * np.sum(layer.weights * layer.weights)
+```
 
-This implementation is designed for educational purposes to understand the inner workings of neural networks. For production use, consider using established frameworks like TensorFlow or PyTorch.
+### Dropout Implementation
+```python
+class Layer_Dropout:
+    def __init__(self, rate):
+        self.rate = 1 - rate
+
+    def forward(self, inputs, training):
+        if not training:
+            self.output = inputs.copy()
+            return
+        self.binary_mask = np.random.binomial(1, self.rate, size=inputs.shape) / self.rate
+        self.output = inputs * self.binary_mask
+```
+
+## Output Example
+```
+epoch: 100, acc: 0.750, loss: 0.683 (data_loss: 0.618, reg_loss: 0.065), lr: 0.0499
+validation, acc: 0.793, loss: 0.654
+```
+
+## Best Practices
+1. Use appropriate learning rates (typically 0.001 to 0.05)
+2. Apply regularization for large networks
+3. Monitor validation metrics to prevent overfitting
+4. Use dropout in deeper networks
+5. Implement learning rate decay for convergence
+
+## Limitations
+- CPU-only implementation
+- Limited to feed-forward neural networks
+- No convolutional or recurrent layers
+- Basic optimization techniques
+
+## Future Improvements
+- Add convolutional layers
+- Implement batch normalization
+- Add early stopping
+- Include model saving/loading
+- Add more activation functions
+- Implement mini-batch processing
